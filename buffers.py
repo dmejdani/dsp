@@ -1,7 +1,7 @@
 """
-Implementation in python of a circular buffer. 
-For fun; not much use of this since there are no pointers in python to do this efficiently.
-I will try to do this artificially
+Simulation in python of a real-time circular buffer.
+Based on the circular buffer there are Delay and FIR buffer simulation.
+For fun; not much use of this other than learning.
 """
 from typing import Union
 
@@ -9,9 +9,8 @@ import numpy as np
 
 
 class Buffer:
-    """
-    Simple circular buffer
-    """
+    """Simple circular buffer"""
+
     def __init__(self, size: int = 256):
         """
         Initialize the buffer with zeros
@@ -31,9 +30,13 @@ class Buffer:
         self.state[self.ptr] = sample
         self.ptr = self.increment(self.ptr)
 
-    def increment(self, pointer, amount: int = 1) -> int:
-        """Increment a pointer by amount taking into account the buffer size"""
-        return (pointer + amount) % self.size
+    def increment(self, pointer: int, amount: int = 1) -> int:
+        """Increment a pointer by amount in a circular buffer fashion"""
+        return (pointer + amount) & (self.size - 1)
+    
+    def decrement(self, pointer: int, amount: int = 1) -> int:
+        """Decrement a pointer by amount in a circular buffer fashion"""
+        return (pointer + self.size - amount) & (self.size - 1)
 
     def empty(self) -> None:
         """Empty the buffer by filling it with zeros"""
@@ -41,9 +44,8 @@ class Buffer:
 
 
 class Delay(Buffer):
-    """
-    A simple delay 
-    """
+    """A simple delay"""
+
     def __init__(self, delay: int = 0, *args, **kwargs):
         """
         Initialize the delay buffer
@@ -51,9 +53,12 @@ class Delay(Buffer):
         :param delay: The amount of delay in samples
         """
         super().__init__(*args, **kwargs)
+        
+        if self.size <= delay:
+            raise RuntimeError(f"Maximum delay possible is {self.size - 1}")
+
         self.delay = delay
-        self.read_ptr = 0
-        self.ptr += delay  # push ptr forward 
+        self.read_ptr = self.decrement(self.ptr, delay)  # set read_ptr delay steps behind
 
     def read(self) -> Union[int, float]:
         """
@@ -66,4 +71,28 @@ class Delay(Buffer):
         v = self.state[self.read_ptr]
         self.read_ptr = self.increment(self.read_ptr)
         return v
+        
 
+class FIRFilter(Buffer):
+    """A simple FIR filter"""
+
+    def __init__(self, taps: np.array, *args, **kwargs):
+        """
+        Initialize a buffer implementation of a FIR filter
+        
+        :param taps: Array of filter tap values
+        """
+        super().__init__(*args, **kwargs)
+
+        if self.size <= len(np):
+            raise RuntimeError(f"The maximum size of the filter is {self.size - 1}")
+
+        self.taps = taps
+        self.nr_taps = len(taps)
+
+    def compute(self) -> Union[int, float]:
+        """Calculate the sum after the current step of the convolution"""
+        sum = 0
+        for i in range(self.nr_taps):
+            sum += self.state[self.decrement(self.ptr, i+1)] * self.taps[i]
+        return sum
