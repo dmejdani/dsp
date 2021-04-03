@@ -84,7 +84,7 @@ class FIRFilter(Buffer):
         """
         super().__init__(*args, **kwargs)
 
-        if self.size <= len(np):
+        if self.size <= len(taps):
             raise RuntimeError(f"The maximum size of the filter is {self.size - 1}")
 
         self.taps = taps
